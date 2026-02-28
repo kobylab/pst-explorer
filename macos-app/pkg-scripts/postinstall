@@ -1,0 +1,15 @@
+#!/bin/bash
+# Post-install: register app with Launch Services and Spotlight
+
+APP="/Applications/PST Explorer.app"
+
+# Register with Launch Services (makes it appear in Spotlight, Launchpad, open-with menus)
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "$APP"
+
+# Force Spotlight to index the app
+mdimport "$APP"
+
+# Touch to ensure filesystem watchers pick it up
+touch "$APP"
+
+exit 0
