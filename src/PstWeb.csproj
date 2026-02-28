@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PstWeb</RootNamespace>
+    <AssemblyName>PstWeb</AssemblyName>
+    <!-- macOS app metadata -->
+    <Product>PST Explorer</Product>
+    <Description>Browse, search, and export emails from Outlook PST/OST files</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PST/OST parsing — no Outlook dependency, cross-platform -->
+    <PackageReference Include="XstReader.Api" Version="1.0.6" />
+
+    <!-- HTML → PDF via headless Chromium (replaces DinkToPdf/wkhtmltopdf for macOS) -->
+    <PackageReference Include="PuppeteerSharp" Version="20.0.5" />
+
+    <!-- Structured logging -->
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.1" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
+  </ItemGroup>
+
+</Project>

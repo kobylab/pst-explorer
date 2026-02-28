@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  pstweb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pst-explorer
+    ports:
+      - "9090:8080"
+      - "9443:8443"
+    volumes:
+      # Drop your .pst / .ost files here on the HOST — they appear read-only inside the container
+      - ./pst_files:/data/pst
+      # PDFs land here on the HOST after export
+      - ./exports:/data/exports
+    environment:
+      - ASPNETCORE_URLS=https://+:8443;http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/app/tls.crt
+      - ASPNETCORE_Kestrel__Certificates__Default__KeyPath=/app/tls.key
+      - PST_DIR=/data/pst
+      - EXPORT_DIR=/data/exports
+    restart: unless-stopped
+    mem_limit: 2g          # PST indexing can be memory-hungry on large archives
+
+# ── Usage ──────────────────────────────────────────────────────────────────────
+# 1. mkdir pst_files exports
+# 2. Copy your .pst files into ./pst_files/
+# 3. docker-compose up -d --build
+# 4. Open https://localhost:9443 (self-signed cert — accept the browser warning)
+#    or   http://localhost:9090  (plain HTTP)
+# 5. Exported PDFs appear in ./exports/

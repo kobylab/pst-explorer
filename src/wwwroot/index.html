@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PST Explorer</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f6feb' stroke-width='2'><path d='M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z'/></svg>"/>
+  <script src="vendor/babel.min.js"></script>
+  <script src="vendor/react.production.min.js"></script>
+  <script src="vendor/react-dom.production.min.js"></script>
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      /* macOS Dark Mode Palette */
+      --bg:       #1E1E1E;
+      --bg2:      rgba(30, 30, 30, 0.6);
+      --bg3:      rgba(255, 255, 255, 0.08);
+      --border:   rgba(255, 255, 255, 0.1);
+      --text:     #EAEAEA;
+      --text-dim: #98989D;
+      --accent:   #0A60FE; /* macOS Blue */
+      --accent2:  #4085FE;
+      --green:    #30D158;
+      --red:      #FF453A;
+      --yellow:   #FFD60A;
+      --radius:   6px;
+      --font:     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    }
+    html, body, #root { height: 100%; background: transparent; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; }
+    button {
+      cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 5px 14px; font-size: 12px; font-family: var(--font);
+      background: rgba(255, 255, 255, 0.05); color: var(--text); 
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
+    button:active:not(:disabled) { background: rgba(255, 255, 255, 0.03); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+    button.primary {
+      background: linear-gradient(180deg, var(--accent2) 0%, var(--accent) 100%);
+      border-color: rgba(0,0,0,0.2); color: #fff; font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+    button.primary:hover:not(:disabled) { 
+      background: linear-gradient(180deg, #5A95FF 0%, #1A6CFF 100%); 
+    }
+    button.primary:active:not(:disabled) {
+      background: var(--accent); box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+    }
+    button.danger { border-color: var(--red); color: var(--red); background: transparent; box-shadow: none; }
+    button.danger:hover:not(:disabled) { background: rgba(255,69,58,0.1); }
+    button.icon-btn {
+      padding: 4px; border: none; background: transparent; box-shadow: none;
+      color: var(--text-dim); border-radius: var(--radius);
+    }
+    button.icon-btn:hover:not(:disabled) { background: var(--bg3); color: var(--text); border-color: transparent; box-shadow: none; }
+    input[type=text], input[type=search] {
+      background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 5px 10px; font-size: 12px; font-family: var(--font); width: 100%;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); transition: border-color 0.15s;
+    }
+    input:focus { outline: none; border-color: var(--accent2); background: rgba(0, 0, 0, 0.3); }
+    select {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 5px 10px; font-size: 12px; font-family: var(--font);
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; border: 2px solid var(--bg); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    /* ── Layout ─────────────────────────────────────────────────── */
+    #root { display: flex; flex-direction: column; background: transparent; }
+    .topbar {
+      display: flex; align-items: center; gap: 12px; padding: 0 16px 0 80px; /* Shift content right to clear macOS traffic lights */
+      background: transparent; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; height: 48px; -webkit-app-region: drag; /* allows dragging window if native */
+    }
+    .topbar button { -webkit-app-region: no-drag; }
+    .topbar-logo {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em;
+    }
+    .topbar-logo svg { color: var(--accent2); }
+    .topbar-file {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 3px 10px;
+    }
+    .topbar-file-label { font-size: 11px; color: var(--text-dim); }
+    .topbar-file-name  { font-size: 12px; font-weight: 600; color: var(--text); }
+    .topbar-file-sep   { font-size: 11px; color: var(--border); }
+    .topbar-file-count { font-size: 11px; color: var(--text-dim); }
+    .topbar-sep { flex: 1; }
+    .layout { display: flex; flex: 1; overflow: hidden; background: transparent; }
+
+    .sidebar {
+      width: 240px; min-width: 180px; flex-shrink: 0;
+      background: rgba(0, 0, 0, 0.15); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 10px 14px; flex-shrink: 0;
+    }
+    .sidebar-title {
+      font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5);
+      text-transform: uppercase; letter-spacing: .06em;
+    }
+    .folder-tree { flex: 1; overflow-y: auto; padding: 4px 8px; }
+    .folder-item {
+      display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+      cursor: pointer; user-select: none; border-radius: 5px;
+      margin: 2px 0; color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 500;
+      transition: background 0.1s;
+    }
+    .folder-item:hover { background: rgba(255, 255, 255, 0.06); }
+    .folder-item.active { background: var(--accent); color: #fff; }
+    .folder-toggle { width: 14px; flex-shrink: 0; color: inherit; opacity: 0.6; }
+    .folder-icon { flex-shrink: 0; color: var(--accent2); }
+    .folder-item.active .folder-icon, .folder-item.active .folder-toggle { color: #fff; opacity: 1; }
+    .folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .folder-count { font-size: 11px; color: inherit; opacity: 0.6; flex-shrink: 0; }
+    .all-messages-item { margin-bottom: 4px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .all-messages-item .folder-icon { color: var(--green); }
+    .all-messages-item.active .folder-icon { color: #fff; }
+    .file-origin { color: var(--accent2); font-weight: 600; font-size: 11px; }
+
+    /* ── Main ────────────────────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: transparent; }
+    .toolbar {
+      display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+      background: transparent; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .search-wrap input { padding-left: 30px; border-radius: 8px; }
+    .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--text-dim); pointer-events: none;
+    }
+    .group-btn {
+      white-space: nowrap; font-size: 11px; padding: 4px 10px;
+      background: var(--bg3); border-color: var(--border); color: var(--text-dim); box-shadow: none;
+    }
+    .group-btn.active {
+      background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: none;
+    }
+    .result-count { color: var(--text-dim); font-size: 11px; white-space: nowrap; margin-left: auto; }
+
+    /* ── Message list ────────────────────────────────────────────── */
+    .msg-list { flex: 1; overflow-y: auto; position: relative; }
+    .msg-list-empty {
+      display: flex; align-items: center; justify-content: center; height: 100%;
+      color: var(--text-dim); flex-direction: column; gap: 12px;
+    }
+    .msg-list-empty svg { opacity: 0.3; }
+    .msg-list-empty span { font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; background: rgba(30, 30, 30, 0.95); border-bottom: 1px solid var(--border);
+      padding: 6px 16px; text-align: left; font-size: 11px; font-weight: 500;
+      color: var(--text-dim); white-space: nowrap; z-index: 1; box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+    }
+    tbody tr { border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background 0.08s; cursor: pointer; }
+    tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+    tbody tr.selected { background: rgba(10, 96, 254, 0.15); }
+    tbody tr.previewing { background: rgba(255, 255, 255, 0.06); }
+    td { padding: 8px 16px; font-size: 13px; }
+    td.cb-cell { width: 40px; }
+    td.subject-cell { max-width: 0; }
+    .subj-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .subj-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: var(--text); }
+    .msg-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1px 6px; font-size: 10px; color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    td.from-cell  { color: rgba(255,255,255,0.7); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    td.date-cell  { white-space: nowrap; color: rgba(255,255,255,0.5); width: 140px; font-size: 12px; }
+    td.folder-cell { color: rgba(255,255,255,0.5); width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; border-radius: 3px; }
+
+    /* ── Bottom bar ──────────────────────────────────────────────── */
+    .bottom-bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+      background: transparent; border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .sel-count strong { color: var(--text); font-weight: 600; }
+    .pagination { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--text-dim); font-size: 12px; }
+    .pagination button { padding: 3px 8px; box-shadow: none; background: transparent; }
+    .pagination button:hover:not(:disabled) { background: var(--bg3); }
+
+    /* ── Preview panel ───────────────────────────────────────────── */
+    .preview-panel {
+      width: 500px; min-width: 300px; flex-shrink: 0;
+      background: rgba(0, 0, 0, 0.15); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .preview-placeholder {
+      display: flex; align-items: center; justify-content: center; height: 100%;
+      color: var(--text-dim); flex-direction: column; gap: 12px;
+    }
+    .preview-placeholder svg { opacity: 0.25; }
+    .preview-header { padding: 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: rgba(255,255,255,0.02); }
+    .preview-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .preview-title { font-size: 16px; font-weight: 600; line-height: 1.35; word-break: break-word; }
+    .preview-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .meta-row { display: flex; gap: 8px; font-size: 12px; color: var(--text-dim); margin: 4px 0; }
+    .meta-label { font-weight: 500; color: rgba(255,255,255,0.4); min-width: 50px; text-align: right; }
+    .meta-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.85); }
+    .preview-body { flex: 1; overflow: hidden; background: #fff; }
+    .preview-body iframe { width: 100%; height: 100%; border: none; background: #fff; }
+    .att-list { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; background: var(--bg); }
+    .att-list-title { font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .att-chip {
+      display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+      padding: 4px 10px; font-size: 11px; margin: 4px 4px 0 0; color: var(--text);
+    }
+
+    /* ── Open dialog ─────────────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex;
+      align-items: center; justify-content: center; z-index: 100;
+    }
+    .dialog {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      padding: 24px; width: 500px; max-width: 95vw; box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+    }
+    .dialog-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .dialog-sub { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+    .drop-zone {
+      border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px;
+      padding: 30px 20px; text-align: center; cursor: pointer;
+      margin-bottom: 16px; transition: all 0.2s; background: rgba(255,255,255,0.02);
+    }
+    .drop-zone:hover, .drop-zone.over {
+      border-color: var(--accent); background: rgba(10, 96, 254, 0.05);
+    }
+    .drop-zone-icon { color: var(--text-dim); margin-bottom: 12px; }
+    .drop-zone-text { color: var(--text); font-size: 14px; font-weight: 500; }
+    .drop-zone-sub  { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+    .progress-bar   { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+    .progress-fill  { height: 100%; background: var(--accent); transition: width 0.3s; }
+    .file-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin-bottom: 20px; }
+    .file-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .file-item:hover { border-color: rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); }
+    .file-item.selected { border-color: var(--accent); background: rgba(10, 96, 254, 0.1); }
+    .file-item-icon { color: var(--text-dim); flex-shrink: 0; }
+    .file-item.selected .file-item-icon { color: var(--accent2); }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .file-check { color: var(--accent2); flex-shrink: 0; }
+    .dialog-footer { display: flex; gap: 10px; justify-content: flex-end; }
+    .no-files { color: var(--text-dim); text-align: center; padding: 20px 0; font-size: 13px; }
+
+    /* ── Toasts ──────────────────────────────────────────────────── */
+    .toast-wrap {
+      position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 200;
+    }
+    .toast {
+      background: rgba(30, 30, 30, 0.95);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; font-size: 13px; color: var(--text);
+      display: flex; align-items: center; gap: 10px; min-width: 260px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      animation: slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .toast.success .toast-dot { background: var(--green); box-shadow: 0 0 8px rgba(48,209,88,0.5); }
+    .toast.error   .toast-dot { background: var(--red); box-shadow: 0 0 8px rgba(255,69,58,0.5); }
+    .toast.info    .toast-dot { background: var(--accent2); box-shadow: 0 0 8px rgba(64,133,254,0.5); }
+    @keyframes slide-in { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: none; } }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.2); border-top-color: currentColor;
+      border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    .spinner.dark { border-color: rgba(255,255,255,0.1); border-top-color: var(--accent2); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay {
+      position: absolute; inset: 0; background: rgba(30,30,30,0.85);
+      display: flex; align-items: center; justify-content: center; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ── SVG icons ─────────────────────────────────────────────────────────────────
+const Icon = ({ name, size = 16, style, className }) => {
+  const s = { width: size, height: size, display: 'inline-block', flexShrink: 0, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', ...style };
+  const paths = {
+    box:        <><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>,
+    folder:     <><path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></>,
+    'folder-open': <><path d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0A2.25 2.25 0 0 0 1.5 12v4.5c0 1.243 1.007 2.25 2.25 2.25h16.5A2.25 2.25 0 0 0 22.5 16.5V12a2.25 2.25 0 0 0-2.25-2.224m-16.5 0V6c0-1.243 1.007-2.25 2.25-2.25h3.803c.698 0 1.355.398 1.636 1.036l.96 2.185A1.25 1.25 0 0 0 9.805 7.5h8.445c1.243 0 2.25 1.007 2.25 2.25v.276" /></>,
+    file:       <><path d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></>,
+    search:     <><path d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></>,
+    upload:     <><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></>,
+    download:   <><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></>,
+    trash:      <><path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></>,
+    x:          <><path d="M6 18 18 6M6 6l12 12" /></>,
+    check:      <><path d="m4.5 12.75 6 6 9-13.5" /></>,
+    mail:       <><path d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></>,
+    paperclip:  <><path d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></>,
+    link:       <><path d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></>,
+    'chevron-right': <><path d="m8.25 4.5 7.5 7.5-7.5 7.5" /></>,
+    'chevron-down':  <><path d="m19.5 8.25-7.5 7.5-7.5-7.5" /></>,
+    switch:     <><path d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></>,
+    archive:    <><path d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></>,
+    inbox:      <><path d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859M12 3v8.25m0 0-3-3m3 3 3-3M2.25 18.75A2.25 2.25 0 0 0 4.5 21h15a2.25 2.25 0 0 0 2.25-2.25V13.5" /></>,
+  };
+  return <svg viewBox="0 0 24 24" style={s} className={className}>{paths[name]}</svg>;
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+const api = {
+  listFiles: ()              => fetch('/api/pst/files').then(r => r.json()),
+  status:    ()              => fetch('/api/pst/status').then(r => r.json()),
+  open:      (filenames)     => fetch('/api/pst/open', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filenames: Array.isArray(filenames) ? filenames : [filenames]}) }).then(r => r.json()),
+  folders:   ()              => fetch('/api/pst/folders').then(r => r.json()),
+  messages:  (folder, search, page, pageSize, grouped) => {
+    const p = new URLSearchParams({ page, pageSize });
+    if (folder) p.set('folder', folder);
+    if (search) p.set('search', search);
+    if (grouped) p.set('grouped', 'true');
+    return fetch(`/api/pst/messages?${p}`).then(r => r.json());
+  },
+  preview: (id)              => fetch(`/api/pst/preview/${id}`).then(r => r.json()),
+  export:  (ids, zipName, groupByChain) => fetch('/api/pst/export', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ ids, zipName, groupByChain: !!groupByChain })
+  })
+};
+const downloadHelper = (blob, filename) => {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.downloadBlob) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      window.webkit.messageHandlers.downloadBlob.postMessage({
+        base64: reader.result,
+        filename: filename
+      });
+    };
+    reader.readAsDataURL(blob);
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+};
+
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function useToasts() {
+  const [toasts, setToasts] = useState([]);
+  const push = useCallback((msg, type='info', duration=4000) => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
+  }, []);
+  return { toasts, push };
+}
+
+function Toast({ toast }) {
+  return (
+    <div className={`toast ${toast.type}`}>
+      <span className="toast-dot"/>
+      <span>{toast.msg}</span>
+    </div>
+  );
+}
+
+// ── Confirm dialog ────────────────────────────────────────────────────────────
+function ConfirmDialog({ title, body, confirmLabel='Delete', onConfirm, onCancel }) {
+  return (
+    <div className="overlay" onClick={onCancel}>
+      <div className="confirm-dialog" onClick={e => e.stopPropagation()}>
+        <div className="confirm-title">{title}</div>
+        <div className="confirm-body">{body}</div>
+        <div className="confirm-footer">
+          <button onClick={onCancel}>Cancel</button>
+          <button className="danger" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Folder tree ───────────────────────────────────────────────────────────────
+const HIDDEN_FOLDERS = new Set(['search root', 'search root - mailbox']);
+
+function shouldHideFolder(folder) {
+  const name = (folder.name || '').toLowerCase();
+  if (HIDDEN_FOLDERS.has(name)) return true;
+  // Hide leaf folders with 0 messages and no children that have messages
+  if (name === 'deleted items' && folder.messageCount === 0 && (!folder.children || folder.children.length === 0)) return true;
+  return false;
+}
+
+function countAllMessages(folder) {
+  let count = folder.messageCount || 0;
+  if (folder.children) folder.children.forEach(c => count += countAllMessages(c));
+  return count;
+}
+
+function FolderNode({ folder, depth=0, activeFolder, onSelect }) {
+  const [open, setOpen] = useState(depth < 2);
+  if (shouldHideFolder(folder)) return null;
+  const visibleChildren = (folder.children || []).filter(c => !shouldHideFolder(c));
+  const hasChildren = visibleChildren.length > 0;
+  const isActive = activeFolder === folder.path;
+  return (
+    <div>
+      <div
+        className={`folder-item ${isActive ? 'active' : ''}`}
+        style={{ paddingLeft: `${10 + depth * 14}px` }}
+        onClick={() => { onSelect(folder.path); if (hasChildren) setOpen(o => !o); }}
+      >
+        <span className="folder-toggle">
+          {hasChildren
+            ? <Icon name={open ? 'chevron-down' : 'chevron-right'} size={11}/>
+            : null}
+        </span>
+        <span className="folder-icon">
+          <Icon name={open && hasChildren ? 'folder-open' : 'folder'} size={13}/>
+        </span>
+        <span className="folder-name">{folder.name}</span>
+        {folder.messageCount > 0 && <span className="folder-count">{folder.messageCount.toLocaleString()}</span>}
+      </div>
+      {hasChildren && open && visibleChildren.map(c =>
+        <FolderNode key={c.id} folder={c} depth={depth+1} activeFolder={activeFolder} onSelect={onSelect}/>
+      )}
+    </div>
+  );
+}
+
+// ── Open dialog ───────────────────────────────────────────────────────────────
+function OpenDialog({ onOpen, currentFile, currentFiles = [] }) {
+  const [files, setFiles]               = useState([]);
+  const [selected, setSelected]         = useState(new Set(currentFiles));
+  const [loading, setLoading]           = useState(false);
+  const [uploading, setUploading]       = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const [dragOver, setDragOver]         = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // filename to confirm
+  const fileInputRef = useRef();
+
+  const loadFiles = () => api.listFiles().then(setFiles).catch(() => setFiles([]));
+  useEffect(() => { loadFiles(); }, []);
+
+  const open = async () => {
+    if (selected.size === 0) return;
+    setLoading(true);
+    await onOpen(Array.from(selected));
+    setLoading(false);
+  };
+
+  const toggleSelect = (filename) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(filename)) next.delete(filename);
+      else next.add(filename);
+      return next;
+    });
+  };
+
+  const uploadFile = async (file) => {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['pst','ost'].includes(ext)) {
+      // Use toast via parent — for now just don't proceed
+      return;
+    }
+    setUploading(true); setUploadProgress(0);
+    try {
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/pst/upload');
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) setUploadProgress(Math.round(e.loaded / e.total * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+          else reject(new Error((JSON.parse(xhr.responseText).error) || 'Upload failed'));
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        const fd = new FormData();
+        fd.append('file', file);
+        xhr.send(fd);
+      });
+      await loadFiles();
+      setUploadProgress(null);
+    } catch(e) {
+      setUploadProgress(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onDrop = e => {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) uploadFile(file);
+  };
+
+  const doDelete = async () => {
+    const filename = confirmDelete;
+    setConfirmDelete(null);
+    await fetch(`/api/pst/files/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    await loadFiles();
+    if (selected.has(filename)) {
+      setSelected(prev => {
+        const next = new Set(prev);
+        next.delete(filename);
+        return next;
+      });
+    }
+  };
+
+  return (
+    <>
+    <div className="overlay">
+      <div className="dialog">
+        <div className="dialog-title">
+          <Icon name="box" size={16} style={{color:'var(--accent2)'}}/>
+          PST Explorer
+        </div>
+        <p className="dialog-sub">Select multiple files to merge into one searchable view, or upload new archives.</p>
+
+        {/* Drop zone */}
+        <div
+          className={`drop-zone ${dragOver ? 'over' : ''}`}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+        >
+          <input ref={fileInputRef} type="file" accept=".pst,.ost" style={{position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clipPath:'inset(100%)', border:0}}
+            onChange={e => uploadFile(e.target.files[0])}/>
+          {uploading ? (
+            <div>
+              <div style={{color:'var(--text-dim)', fontSize:12, marginBottom:6}}>
+                Uploading… {uploadProgress}%
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{width:`${uploadProgress}%`}}/>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="drop-zone-icon">
+                <Icon name="upload" size={22}/>
+              </div>
+              <div className="drop-zone-text">Drop a PST or OST file here</div>
+              <div className="drop-zone-sub">or click to browse — saved to the server volume</div>
+            </>
+          )}
+        </div>
+
+        {/* File list */}
+        {files.length === 0
+          ? <div className="no-files">No PST/OST files found — upload one above.</div>
+          : <div className="file-list">
+              {files.map(f => (
+                <div
+                  key={f.filename}
+                  className={`file-item ${selected.has(f.filename) ? 'selected' : ''}`}
+                  onClick={() => toggleSelect(f.filename)}
+                >
+                  <span className="file-item-icon">
+                    <Icon name="file" size={16}/>
+                  </span>
+                  <div className="file-info">
+                    <div className="file-name">{f.filename}</div>
+                    <div className="file-size">{fmtSize(f.size)}</div>
+                  </div>
+                  {selected.has(f.filename) && (
+                    <span className="file-check"><Icon name="check" size={14}/></span>
+                  )}
+                  <button
+                    className="icon-btn"
+                    title="Delete from server"
+                    onClick={e => { e.stopPropagation(); setConfirmDelete(f.filename); }}
+                  >
+                    <Icon name="trash" size={14}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+        }
+
+        <div className="dialog-footer">
+          {currentFile && <button onClick={() => onOpen(null)}>Cancel</button>}
+          {files.length > 1 && (
+            <button
+              onClick={() => setSelected(prev => prev.size === files.length ? new Set() : new Set(files.map(f => f.filename)))}
+              disabled={loading || uploading}
+              title={selected.size === files.length ? 'Deselect all files' : 'Select all files'}
+            >
+              <Icon name={selected.size === files.length ? 'close' : 'check'} size={13}/>
+              {selected.size === files.length ? 'Deselect All' : 'Select All'}
+            </button>
+          )}
+          <button className="primary" onClick={open} disabled={selected.size === 0 || loading || uploading}>
+            {loading ? <span className="spinner"/> : <Icon name="archive" size={13}/>}
+            {loading ? 'Opening\u2026' : (selected.size > 1 ? `Open ${selected.size} Files Together` : 'Open')}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {confirmDelete && (
+      <ConfirmDialog
+        title="Delete file"
+        body={`Remove "${confirmDelete}" from the server? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
+    )}
+    </>
+  );
+}
+
+// ── Preview panel ─────────────────────────────────────────────────────────────
+function PreviewPanel({ messageId, onClose }) {
+  const [data, setData]           = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    if (!messageId) { setData(null); return; }
+    setLoading(true);
+    api.preview(messageId)
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [messageId]);
+
+  const downloadPdf = async () => {
+    if (!messageId) return;
+    setDownloading(true);
+    try {
+      const resp = await fetch(`/api/pst/export/${messageId}/pdf`);
+      if (!resp.ok) return;
+      const blob = await resp.blob();
+      const cd   = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const fallbackExt = blob.type === 'application/zip' ? '.zip' : '.pdf';
+      const name  = match ? match[1] : `email_${messageId}${fallbackExt}`;
+      downloadHelper(blob, name);
+
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const srcdoc = useMemo(() => {
+    if (!data) return '';
+    return `<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <style>
+        body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #222; margin: 12px; word-break: break-word; }
+        img { max-width: 100%; }
+        a { color: #1a73e8; }
+        pre { white-space: pre-wrap; font-size: 12px; }
+      </style>
+    </head><body>${data.htmlBody}</body></html>`;
+  }, [data?.htmlBody]);
+
+  return (
+    <div className="preview-panel">
+      {!data && !loading && (
+        <div className="preview-placeholder">
+          <Icon name="mail" size={40}/>
+          <span>Select an email to preview</span>
+        </div>
+      )}
+      {loading && (
+        <div className="preview-placeholder">
+          <span className="spinner dark" style={{width:22,height:22,borderWidth:2}}/>
+        </div>
+      )}
+      {data && !loading && <>
+        <div className="preview-header">
+          <div className="preview-title-row">
+            <div className="preview-title">{data.subject}</div>
+            <div className="preview-actions">
+              <button
+                className="primary"
+                onClick={downloadPdf}
+                disabled={downloading}
+                style={{padding:'3px 10px', fontSize:11}}
+                title="Download as PDF"
+              >
+                {downloading ? <span className="spinner"/> : <Icon name="download" size={12}/>}
+                PDF
+              </button>
+              <button className="icon-btn" onClick={onClose} title="Close preview">
+                <Icon name="x" size={14}/>
+              </button>
+            </div>
+          </div>
+          <div className="meta-row"><span className="meta-label">From</span><span className="meta-value">{data.from}</span></div>
+          {data.to && <div className="meta-row"><span className="meta-label">To</span><span className="meta-value">{data.to}</span></div>}
+          <div className="meta-row"><span className="meta-label">Date</span><span className="meta-value">{data.date}</span></div>
+          <div className="meta-row"><span className="meta-label">Folder</span><span className="meta-value" style={{color:'var(--text-dim)'}}>{data.folderPath}</span></div>
+        </div>
+        <div className="preview-body">
+          <iframe sandbox="" srcdoc={srcdoc} title="email preview"/>
+        </div>
+        {data.attachments && data.attachments.length > 0 && (
+          <div className="att-list">
+            <div className="att-list-title">
+              <Icon name="paperclip" size={12}/>
+              {data.attachments.length} attachment{data.attachments.length !== 1 ? 's' : ''}
+            </div>
+            {data.attachments.map((a,i) => (
+              <span key={i} className="att-chip">
+                <Icon name="file" size={11}/>
+                {a}
+              </span>
+            ))}
+          </div>
+        )}
+      </>}
+    </div>
+  );
+}
+
+// ── Main app ──────────────────────────────────────────────────────────────────
+function App() {
+  const { toasts, push } = useToasts();
+  const [status, setStatus]               = useState({ isOpen: false, filename: null, totalMessages: 0 });
+  const [showOpen, setShowOpen]           = useState(false);
+  const [folders, setFolders]             = useState([]);
+  const [activeFolder, setActiveFolder]   = useState(null);
+  const [search, setSearch]               = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [messages, setMessages]           = useState([]);
+  const [total, setTotal]                 = useState(0);
+  const [page, setPage]                   = useState(1);
+  const pageSize = 100;
+  const [selected, setSelected]           = useState(new Set());
+  const [previewId, setPreviewId]         = useState(null);
+  const [loadingMsgs, setLoadingMsgs]     = useState(false);
+  const [exporting, setExporting]         = useState(false);
+  const [groupChains, setGroupChains]     = useState(true);
+  const searchDebounce = useRef();
+
+  useEffect(() => {
+    api.status().then(s => {
+      setStatus(s);
+      if (s.isOpen) api.folders().then(setFolders).catch(() => {});
+      else setShowOpen(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setDebouncedSearch(search), 350);
+  }, [search]);
+
+  useEffect(() => {
+    if (!status.isOpen) return;
+    setLoadingMsgs(true);
+    api.messages(activeFolder, debouncedSearch, page, pageSize, groupChains)
+      .then(data => { setMessages(data.items); setTotal(data.total); })
+      .catch(() => push('Failed to load messages', 'error'))
+      .finally(() => setLoadingMsgs(false));
+  }, [activeFolder, debouncedSearch, page, status.isOpen, groupChains]);
+
+  useEffect(() => { setPage(1); }, [activeFolder, debouncedSearch, groupChains]);
+
+  const handleOpen = async (filenames) => {
+    if (!filenames || filenames.length === 0) { setShowOpen(false); return; }
+    push(`Opening ${filenames.length} file(s)…`, 'info');
+    const result = await api.open(filenames);
+    if (result.error) { push(result.error, 'error'); return; }
+    const newStatus = await api.status();
+    setStatus(newStatus);
+    const tree = await api.folders();
+    setFolders(tree);
+    setMessages([]); setTotal(0); setSelected(new Set()); setActiveFolder(null); setPreviewId(null);
+    setShowOpen(false);
+    push(result.message, 'success', 5000);
+  };
+
+  const toggleSelect = (id, e) => {
+    e?.stopPropagation();
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    const ids = messages.map(m => m.id);
+    const allSel = ids.length > 0 && ids.every(id => selected.has(id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allSel) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
+  const getExportIds = useCallback(() => {
+    const ids = new Set(selected);
+    if (groupChains) {
+      for (const m of messages) {
+        if (selected.has(m.id) && m.chainIds && m.chainIds.length > 1) {
+          m.chainIds.forEach(cid => ids.add(cid));
+        }
+      }
+    }
+    return [...ids];
+  }, [selected, messages, groupChains]);
+
+  const handleExport = async () => {
+    if (selected.size === 0) return;
+    setExporting(true);
+    const exportIds = getExportIds();
+    push(`Generating PDF for ${exportIds.length} message(s)…`, 'info');
+    try {
+      const resp = await api.export(exportIds, null, groupChains);
+      if (!resp.ok) {
+        const err = await resp.json();
+        push(err.error || 'Export failed', 'error');
+        return;
+      }
+      const blob = await resp.blob();
+      downloadHelper(blob, `pst_export_${Date.now()}.zip`);
+      push(`Exported ${exportIds.length} message(s)`, 'success');
+    } catch(ex) {
+      push('Export error: ' + ex.message, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <>
+      {/* ── Top bar ── */}
+      <div className="topbar">
+        <div className="topbar-logo">
+          <Icon name="box" size={16} style={{color:'var(--accent2)'}}/>
+          PST Explorer
+        </div>
+        {status.isOpen && (
+          <div className="topbar-file">
+            <span className="topbar-file-label">{(status.filenames && status.filenames.length > 1) ? `${status.filenames.length} Files` : 'Open'}</span>
+            <span className="topbar-file-name">{(status.filenames && status.filenames.length > 1) ? status.filenames.join(', ') : status.filename}</span>
+            <span className="topbar-file-sep">·</span>
+            <span className="topbar-file-count">{status.totalMessages.toLocaleString()} messages</span>
+          </div>
+        )}
+        <div className="topbar-sep"/>
+        <button onClick={() => setShowOpen(true)}>
+          <Icon name="switch" size={13}/>
+          {status.isOpen ? (status.filenames && status.filenames.length > 1 ? 'Switch Files' : 'Switch File') : 'Open PST'}
+        </button>
+      </div>
+
+      {/* ── Body ── */}
+      <div className="layout">
+
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div className="sidebar-header">
+            <div className="sidebar-title">Folders</div>
+            {!status.isOpen && <div style={{color:'var(--text-dim)', fontSize:'11px', marginTop:4}}>No file open</div>}
+          </div>
+          <div className="folder-tree">
+            {status.isOpen && (
+              <div
+                className={`folder-item all-messages-item ${activeFolder === null ? 'active' : ''}`}
+                style={{ paddingLeft: '10px' }}
+                onClick={() => { setActiveFolder(null); setPreviewId(null); }}
+              >
+                <span className="folder-toggle"/>
+                <span className="folder-icon">
+                  <Icon name="inbox" size={13}/>
+                </span>
+                <span className="folder-name">All Messages</span>
+                <span className="folder-count">{status.totalMessages.toLocaleString()}</span>
+              </div>
+            )}
+            {folders.map(f =>
+              <FolderNode key={f.id} folder={f} activeFolder={activeFolder}
+                onSelect={p => { setActiveFolder(p); setPreviewId(null); }}/>
+            )}
+          </div>
+        </div>
+
+        {/* Main */}
+        <div className="main">
+
+          {/* Toolbar */}
+          <div className="toolbar">
+            <div className="search-wrap">
+              <span className="search-icon"><Icon name="search" size={13}/></span>
+              <input
+                type="search"
+                placeholder="Search subjects, from, to… or /regex/"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                disabled={!status.isOpen}
+              />
+            </div>
+            <button
+              className={`group-btn ${groupChains ? 'active' : ''}`}
+              onClick={() => setGroupChains(g => !g)}
+              disabled={!status.isOpen}
+              title={groupChains ? 'Grouped by conversation — click to show all' : 'Showing all messages — click to group'}
+            >
+              <Icon name="link" size={12}/>
+              {groupChains ? 'Grouped' : 'All'}
+            </button>
+            <span className="result-count">
+              {total.toLocaleString()} result{total !== 1 ? 's' : ''}
+              {status.isOpen && !activeFolder && status.filenames && status.filenames.length > 1 && ` across ${status.filenames.length} files`}
+            </span>
+          </div>
+
+          {/* Message list */}
+          <div className="msg-list">
+            {loadingMsgs && (
+              <div className="loading-overlay">
+                <span className="spinner" style={{width:24,height:24,borderWidth:3}}/>
+              </div>
+            )}
+            {messages.length === 0 && !loadingMsgs && (
+              <div className="msg-list-empty">
+                <Icon name={status.isOpen ? 'folder' : 'box'} size={40}/>
+                <span>
+                  {status.isOpen
+                    ? (activeFolder ? 'No messages match' : (debouncedSearch ? 'No messages match your search' : 'Loading…'))
+                    : 'Open a PST file to begin'}
+                </span>
+              </div>
+            )}
+            {messages.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{width:36}}>
+                      <input type="checkbox"
+                        checked={messages.length > 0 && messages.every(m => selected.has(m.id))}
+                        onChange={toggleAll}
+                      />
+                    </th>
+                    <th>Subject</th>
+                    <th style={{width:170}}>From</th>
+                    <th style={{width:120}}>Date</th>
+                    <th style={{width:170}}>Folder</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {messages.map(m => {
+                    const isSel  = selected.has(m.id);
+                    const isPrev = previewId === m.id;
+                    return (
+                      <tr
+                        key={m.id}
+                        className={`${isSel ? 'selected' : ''} ${isPrev ? 'previewing' : ''}`}
+                        onClick={() => setPreviewId(m.id)}
+                      >
+                        <td className="cb-cell" onClick={e => toggleSelect(m.id, e)}>
+                          <input type="checkbox" checked={isSel} onChange={() => {}} onClick={e => toggleSelect(m.id, e)}/>
+                        </td>
+                        <td className="subject-cell">
+                          <div className="subj-wrap">
+                            <span className="subj-text">{m.subject}</span>
+                            {m.chainCount > 1 && (
+                              <span className="msg-badge" title={`${m.chainCount} messages in conversation`}>
+                                <Icon name="link" size={9}/>
+                                {m.chainCount}
+                              </span>
+                            )}
+                            {m.hasAttachments && (
+                              <span className="msg-badge" title={`${m.attachmentCount} attachment(s)`}>
+                                <Icon name="paperclip" size={9}/>
+                                {m.attachmentCount}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="from-cell">{m.from}</td>
+                        <td className="date-cell">{m.date}</td>
+                        <td className="folder-cell">
+                          {(() => {
+                            const parts = (m.folderPath || '').split('\\').join('/').split('/').filter(Boolean);
+                            const isMultiFile = status.filenames && status.filenames.length > 1;
+                            if (isMultiFile && parts.length >= 2) {
+                              const fileName = parts[0].split('.').slice(0, -1).join('.').split('--')[0] || parts[0].split('--')[0];
+                              const folderName = parts.slice(1).filter(p => p !== 'Root' && p !== 'Top of Personal Folders').pop() || parts[parts.length - 1];
+                              return <><span className="file-origin">{fileName}</span> <span style={{color:'var(--border)', margin:'0 2px'}}>›</span> {folderName}</>;
+                            }
+                            const allParts = parts.filter(p => p !== 'Root' && p !== 'Top of Personal Folders');
+                            return allParts.pop() || '';
+                          })()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Bottom bar */}
+          <div className="bottom-bar">
+            <div className="sel-count">
+              {selected.size > 0
+                ? <><strong>{selected.size}</strong> selected</>
+                : <span style={{color:'var(--text-dim)'}}>No messages selected</span>
+              }
+            </div>
+            {selected.size > 0 && (
+              <button onClick={() => setSelected(new Set())}>Clear</button>
+            )}
+            <button
+              className="primary"
+              onClick={handleExport}
+              disabled={selected.size === 0 || exporting}
+              style={{minWidth:150}}
+            >
+              {exporting
+                ? <><span className="spinner"/>Generating…</>
+                : <><Icon name="download" size={13}/>Export {selected.size > 0 ? getExportIds().length : ''} to PDF</>
+              }
+            </button>
+            <div className="pagination">
+              <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page <= 1 || loadingMsgs}>‹</button>
+              <span>Page <strong>{page}</strong> of {totalPages}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page >= totalPages || loadingMsgs}>›</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview panel */}
+        <PreviewPanel messageId={previewId} onClose={() => setPreviewId(null)}/>
+      </div>
+
+      {/* ── Dialogs & overlays ── */}
+      {showOpen && <OpenDialog onOpen={handleOpen} currentFile={status.filename} currentFiles={status.filenames || []}/>}
+
+      <div className="toast-container">
+        {toasts.map(t => <Toast key={t.id} toast={t}/>)}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# ── Build artifacts ───────────────────────────────────────────────────────────
+dist/
+publish/
+src/bin/
+src/obj/
+
+# ── User data (PST files, exports, logs) ─────────────────────────────────────
+pst_files/
+exports/
+*.log
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+*.swp
+*~
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vs/
+.vscode/
+*.user
+*.suo
+
+# ── AI session data ──────────────────────────────────────────────────────────
+.claude/
+
+# ── Backup files ─────────────────────────────────────────────────────────────
+*.bak
+
+# ── Node (screenshot tooling, not part of project) ──────────────────────────
+node_modules/
+package.json
+package-lock.json
