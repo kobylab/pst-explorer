@@ -18,7 +18,20 @@ A self-contained desktop and web application for browsing, searching, and export
 
 ## Deployment Options
 
-### Option 1: macOS Native App
+### Option 1: Download the Installer (Easiest)
+
+Download the latest `.pkg` installer from [**Releases**](https://github.com/kobylab/pst-explorer/releases/latest).
+
+1. Download **PST-Explorer-1.0.0.pkg**
+2. Double-click to install to `/Applications`
+3. Open **PST Explorer** from Applications or Spotlight
+
+> The installer includes everything — no .NET SDK, Xcode, or other dependencies needed on the target Mac.
+
+---
+
+### Option 2: Build macOS Native App from Source
+
 
 A standalone `.app` bundle with a native Swift/WKWebView window. Runs the ASP.NET backend embedded inside the app.
 
@@ -34,7 +47,7 @@ A standalone `.app` bundle with a native Swift/WKWebView window. Runs the ASP.NE
 #### Build
 
 ```bash
-git clone <this-repo> pst-explorer && cd pst-explorer
+git clone git@github.com:kobylab/pst-explorer.git && cd pst-explorer
 chmod +x build-mac.sh
 ./build-mac.sh
 ```
@@ -95,14 +108,14 @@ The built app is ad-hoc code-signed with macOS sandbox entitlements:
 
 ---
 
-### Option 2: Docker
+### Option 3: Docker
 
 Run on any OS with Docker. Uses `wkhtmltopdf` for PDF generation (no browser needed).
 
 #### Quick Start
 
 ```bash
-git clone <this-repo> pst-explorer && cd pst-explorer
+git clone git@github.com:kobylab/pst-explorer.git && cd pst-explorer
 
 # Create host directories for data
 mkdir -p pst_files exports
