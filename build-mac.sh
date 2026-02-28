@@ -236,7 +236,14 @@ if command -v iconutil &>/dev/null; then
 fi
 
 echo "▸ Code signing…"
-codesign --deep --force --sign - --entitlements "$SCRIPT_DIR/macos-app/PSTExplorer.entitlements" "$APP_BUNDLE"
+# Sign the .NET runtime components first (deep = false, so we control order)
+# Then sign the outer bundle with --identifier matching CFBundleIdentifier so
+# macOS seals the Info.plist into the signature — required for Spotlight indexing.
+codesign --force --sign - \
+    --identifier "com.pstexplorer.app" \
+    --entitlements "$SCRIPT_DIR/macos-app/PSTExplorer.entitlements" \
+    --options runtime \
+    "$APP_BUNDLE"
 
 echo ""
 

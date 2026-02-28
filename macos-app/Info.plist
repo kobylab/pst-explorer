@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
-    <string>????</string>
+    <string>PSTE</string>
     <key>CFBundleExecutable</key>
     <string>PSTExplorerLauncher</string>
     <key>CFBundleIconFile</key>
