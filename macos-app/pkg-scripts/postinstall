@@ -1,15 +1,22 @@
 #!/bin/bash
-# Post-install: register app with Launch Services and Spotlight
+# Post-install: sign, register app with Launch Services, and Spotlight
 
 APP="/Applications/PST Explorer.app"
+
+# Re-sign with explicit bundle identifier so macOS seals the Info.plist into
+# the code signature. Without this, Spotlight cannot read CFBundleDisplayName
+# and the app will not appear in Spotlight or Launchpad searches.
+codesign --force --sign - \
+    --identifier "com.pstexplorer.app" \
+    --options runtime \
+    "$APP" 2>/dev/null || true
 
 # Register with Launch Services (makes it appear in Spotlight, Launchpad, open-with menus)
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "$APP"
 
 # Force Spotlight to index the app
-mdimport "$APP"
+mdimport -f "$APP"
 
 # Touch to ensure filesystem watchers pick it up
 touch "$APP"
-
 exit 0
