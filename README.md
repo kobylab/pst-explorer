@@ -307,6 +307,7 @@ Docker mode additionally uses `wkhtmltopdf` (LGPL) for PDF generation.
 ## Security
 
 - **CORS** — Locked to `localhost` origins only
+- **Docker ports** — Bound to `127.0.0.1` by default; **do not expose to untrusted networks** — there is no authentication layer
 - **File upload** — Accepts only `.pst` and `.ost` extensions; filenames are sanitized to prevent path traversal
 - **Regex search** — Timeouts after 5 seconds to prevent ReDoS
 - **Export limits** — Maximum 5,000 messages per export request
